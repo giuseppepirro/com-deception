@@ -5,4 +5,8 @@ This project implemenents algorithms for the novel Community Deception problem. 
 
 We  have implemented two community deception algorithms. The first based on Modularity and the second one based on the novel notion of Community Safeness.
 
-We provide instructiona about how to replicate experiments reported in the paper under review at PKDD2016.
+We provide instructions about how to replicate experiments reported in the paper under review at PKDD2016.
+
+* Describe Datasets
+* Describe Source Files
+* Put instruction about how to replicate experiments in the paper
