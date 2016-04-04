@@ -9,4 +9,4 @@ We provide instructions about how to replicate experiments reported in the paper
 
 * Move all the network datasets in a subfolder named datasets
 * Set the parameters (e.g., community detection algorithm, budget, deception algorithm) inside the communityDeceptionRunner.R file
-* Lanuch the R script. The execution will output the results in a file and also display a subset of them on the terminal
+* Lanuch the communityDeceptionRunner.R script. The execution will output the results in a file and also display a subset of them on the terminal
