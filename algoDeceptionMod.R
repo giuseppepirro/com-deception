@@ -39,7 +39,6 @@ nodeL2<-getAnotherSameCom(members,network,node_lowest)
 }
 else node_lowest<-NULL
 
-#####We need to be sure that the edge exists!!!
 if(!(is.null(node_lowest))) intra_del_delta<- getDeltaModularityAfterDeletion(members, network, node_lowest, nodeL2) 
 else intra_del_delta<-0
 
@@ -65,8 +64,7 @@ if(inter_add_delta>=intra_del_delta)
   best[1]<-node1
   best[2]<-node2
   best[3]<-666 #corresponds to add
-  # print(paste("BETTER INTER ADD WITH DELTA",inter_add_delta,"n1=",node1,"n2=",node2))
-  
+
 }
 else 
   {
@@ -74,13 +72,11 @@ else
     best[2]<-nodeL2
     best[3]<-999 #corresponds to del
     
-    # print(paste("BETTER INTRA DEL WITH DELTA",intra_del_delta,"n1=",node_lowest,"n2=",nodeL2))
-    
+
     
   }
-#}
 
-#print("Riga 139 - ritorno il cambio modMin")
+
 
 
 return (best)
