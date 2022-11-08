@@ -1,0 +1,2 @@
+Network	DetectionAlgorithm	BudgetUpdates	InitialDeceptionValue	FinalDeceptionValue	Time(s)	SizeTargeetCom	#CommunitiesBefore	#CommunitiesAfter	NMI
+terrorist1	infomap	10	0.0	0.0	1.3837269082	13	143	143	1.0

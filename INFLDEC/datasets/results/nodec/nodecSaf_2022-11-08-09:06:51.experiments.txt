@@ -1,0 +1,2 @@
+Network	DetectionAlgorithm	BudgetUpdates	InitialDeceptionValue	FinalDeceptionValue	Time(s)	SizeTargeetCom	#CommunitiesBefore	#CommunitiesAfter
+terrorist1	leiden	20	0.0	0.0	0.11384006900000017	13	140	2
