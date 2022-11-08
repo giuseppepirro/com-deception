@@ -1,2 +1,0 @@
-Network	DetectionAlgorithm	BudgetUpdates	InitialDeceptionValue	FinalDeceptionValue	Time(s)	SizeTargeetCom	#CommunitiesBefore	#CommunitiesAfter
-freeman	leiden	5	0.0	0.0	0.0089939939999998941	9	3	2
