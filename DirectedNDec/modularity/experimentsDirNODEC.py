@@ -34,11 +34,14 @@ class ExperimentsDirNODEC:
             delta_add,inf_i_Cj,inf_i,Cj_index=self.nodec.computeDeltaNodeAddition()
             
             print("Best Add Delta=",delta_add, " , Internal node influence= ", inf_i_Cj, "Total node influence= ", inf_i)
-            exit()
             
             ##this gives a value for each community member
             delta_move,move_details= self.nodec.computeDeltaNodeMoving()
-
+            
+            print("#################")
+            print("Best Mov Delta=",delta_move, " , Move_details= ", move_details)
+            print("#################")
+            exit()
             deltas=[delta_add,delta_del,delta_move]
             best_index=deltas.index(max(deltas))
             #print(deltas)

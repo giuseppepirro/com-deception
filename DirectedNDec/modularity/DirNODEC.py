@@ -643,38 +643,66 @@ class DirNODEC:
     def computeDeltaNodeMoving(self):
         nodes_delta_mov=[]
         ordered_spread = self.ratio_community_members
+        
+        I = self.total_network_influence
+        
+        mod_before = (self.eta/I)- (self.sigma/(I**2))
+        
         for node in self.target_community:
             if node!=-1:
                 node_to_move = node
-                node_to_move_current_degree = self.graph.degree(node_to_move)
+                nod_idx_in_target = self.target_community.index(node)
+                node_to_move_current_inf = self.graph.strength(node_to_move, mode='all', weights='weight')
                 current_community=self.getNodeCommunity(node_to_move)
-                current_community_internal_edges = self.E_Ci[current_community]
-                current_community_degree = self.community_degrees[current_community]
 
                 node_deg_current_com = \
-                    self.degi_Ci[self.target_community.index(node)][current_community]
-
+                    self.degi_Ci[nod_idx_in_target][current_community]
+                
+                node_inf_current_com = self.degi_Ci_inf[nod_idx_in_target][current_community]
+                
                 new_community = ordered_spread.index(ordered_spread[np.argmin(ordered_spread)])
 
                 if new_community!=current_community:
-                    new_community_degree = self.community_degrees[new_community]
                     new_community_nodes= len(self.communities[new_community])
 
-                    new_community_internal_edges = self.E_Ci[new_community]
-
                     node_deg_already_new_com = \
-                        self.degi_Ci[self.target_community.index(node)][new_community]
-
+                        self.degi_Ci[nod_idx_in_target][new_community]
+                    
                     new_edges_new_com=int(math.ceil(new_community_nodes-node_deg_already_new_com)*0.9)
-
+                    
                     edges_to_be_deleted=node_deg_current_com
-                    new_node_degree = node_to_move_current_degree + new_edges_new_com-edges_to_be_deleted
-                    M = self.graph.ecount()
-                    M1=M+new_node_degree
-                    removing_i_from_Ci=((current_community_internal_edges-(node_deg_current_com))/2*M-((current_community_degree-node_deg_current_com)**2))/(4*M*M)
-                    adding_i_to_Cj=((new_community_internal_edges+(new_edges_new_com))/4*M1*M1-((new_community_degree+new_edges_new_com)**2))/(4*M1*M1)
-                    delta_move=removing_i_from_Ci+adding_i_to_Cj
-                    nodes_delta_mov.append(np.array([node_to_move,delta_move,new_community,new_edges_new_com,edges_to_be_deleted,node_deg_already_new_com]))
+                    
+                    new_node_inf = node_to_move_current_inf + new_edges_new_com-edges_to_be_deleted
+                    
+                    mod_after_p1 = (self.eta - node_inf_current_com + new_edges_new_com) / (I-node_to_move_current_inf+new_node_inf)
+                    
+                    
+                    
+                    community_out_inf_change_current = self.degi_Ci_inInf[nod_idx_in_target]
+                    community_out_inf_change_current[current_community] = node_inf_current_com + (sum(self.degi_Ci_outInf[nod_idx_in_target])-self.degi_Ci_outInf[nod_idx_in_target][current_community])
+                    
+                    
+                    community_in_inf_change_current = self.degi_Ci_outInf[nod_idx_in_target]
+                    community_in_inf_change_current[current_community] = node_inf_current_com + (sum(self.degi_Ci_inInf[nod_idx_in_target])-self.degi_Ci_inInf[nod_idx_in_target][current_community])
+                    
+                    community_out_inf_change_new = self.degi_Ci_inInf[nod_idx_in_target]
+                    community_out_inf_change_new[new_community] = new_edges_new_com + (sum(self.degi_Ci_outInf[nod_idx_in_target])-self.degi_Ci_outInf[nod_idx_in_target][new_community])
+                    
+                    
+                    community_in_inf_change_new = self.degi_Ci_outInf[nod_idx_in_target]
+                    community_in_inf_change_new[new_community] = new_edges_new_com + (sum(self.degi_Ci_inInf[nod_idx_in_target])-self.degi_Ci_inInf[nod_idx_in_target][new_community])
+                    
+                    
+                    updatedSigma = self.getUpdatedSigma(self.community_out_influences-community_out_inf_change_current+community_out_inf_change_new, self.community_in_influences-community_in_inf_change_current+community_in_inf_change_new)
+                    
+                    
+                    mod_after_p2 = updatedSigma/((I-node_to_move_current_inf+new_node_inf)**2)
+                    
+                    mod_after = mod_after_p1 - mod_after_p2
+                    
+                    delta_mov_mod =mod_before - mod_after
+                    
+                    nodes_delta_mov.append(np.array([node_to_move,delta_mov_mod,new_community,new_edges_new_com,edges_to_be_deleted,node_deg_already_new_com]))
                 else:
                     nodes_delta_mov.append(np.array([node_to_move,-1,-1,-1,-1,-1]))
             else:
@@ -729,28 +757,6 @@ class DirNODEC:
 
 """
 ############# NODEC Archive #####################
-    
-    def computeDeltaNodeAddition(self):
-        ordered_spread=self.ratio_community_members
-        Cj_index= int(ordered_spread.index(ordered_spread[np.argmin(ordered_spread)]))
-        Cj =self.communities[Cj_index]
-        internal_edges_Cj=self.E_Ci[Cj_index]
-        degree_Cj=self.community_degrees[Cj_index]
-
-        deg_i_Cj=int(len(Cj)-(math.ceil(len(Cj))*0.1))
-
-        deg_i=int(math.ceil(deg_i_Cj*1.2))
-        M=self.graph.ecount()
-        M1=M+deg_i
-
-        A=(internal_edges_Cj + deg_i_Cj)/(2 * M1)
-        B=math.pow((degree_Cj +2 * deg_i),2)/(4 * M1*M1)
-        C=(internal_edges_Cj)/(2*M)
-        D=(-(math.pow(degree_Cj,2))-math.pow(deg_i,2))/(4 * M*M)
-
-        delta_add = A-B-C-D
-        return delta_add,deg_i_Cj,deg_i,Cj_index
-
 
     def computeDeltaNodeMoving(self):
         nodes_delta_mov=[]
