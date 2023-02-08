@@ -531,6 +531,10 @@ class DirNODEC:
     def plot_communities(self,communities):
         node_labels = range(0, self.graph.vcount())
         ig.plot(communities, mark_groups=True, vertex_size=20, vertex_label=node_labels)
+        
+        
+    def get_intra_community_influence(self, com):
+        return self.getCommunityInducedSubgraph(com).strength(range(0, len(com)), mode="out", weights="weight")
     ########################################### END UTILITIES ##############################
 
     
@@ -578,7 +582,7 @@ class DirNODEC:
             print(community_out_inf_change)
             """
             
-            updatedSigma = self.getUpdatedSigma(self.community_out_influences-community_out_inf_change[delCandidateIdx], self.community_in_degrees-community_in_inf_change[delCandidateIdx])
+            updatedSigma = self.getUpdatedSigma(self.community_out_influences-community_out_inf_change[delCandidateIdx], self.community_in_influences-community_in_inf_change[delCandidateIdx])
             
             mod_after_p2 = updatedSigma/((I-influences_of_target_nodes[delCandidateIdx])**2)
             
@@ -593,27 +597,49 @@ class DirNODEC:
 
 
     def computeDeltaNodeAddition(self):
+        
+        I = self.total_network_influence
+        
+        mod_before = (self.eta/I)- (self.sigma/(I**2))
+        
+        
         ordered_spread=self.ratio_community_members
         Cj_index= int(ordered_spread.index(ordered_spread[np.argmin(ordered_spread)]))
         Cj =self.communities[Cj_index]
-        internal_edges_Cj=self.E_Ci[Cj_index]
-        degree_Cj=self.community_degrees[Cj_index]
-
-        deg_i_Cj=int(len(Cj)-(math.ceil(len(Cj))*0.1))
-
-        deg_i=int(math.ceil(deg_i_Cj*1.2))
-        M=self.graph.ecount()
-        M1=M+deg_i
-
-        A=(internal_edges_Cj + deg_i_Cj)/(2 * M1)
-        B=math.pow((degree_Cj +2 * deg_i),2)/(4 * M1*M1)
-        C=(internal_edges_Cj)/(2*M)
-        D=(-(math.pow(degree_Cj,2))-math.pow(deg_i,2))/(4 * M*M)
-
-        delta_add = A-B-C-D
-        return delta_add,deg_i_Cj,deg_i,Cj_index
-
-
+        
+        
+        inf_i_Cj= int(len(Cj)-(math.ceil(len(Cj))*0.1))
+        
+        inf_i= int(math.ceil(inf_i_Cj*1.2))
+        
+        
+        #recording the change that affects the in/out influence of community Cj
+        #as a result of adding node i
+        
+        community_inf_change = np.zeros(len(self.communities))
+        community_inf_change[Cj_index] = inf_i_Cj+(inf_i-inf_i_Cj)/2
+        
+        external_source_community_idx = random.choice([i for i in range(len(self.communities)) if i != Cj_index])
+        community_inf_change[external_source_community_idx] = (inf_i-inf_i_Cj)/2
+        
+        external_destination_community_idx = random.choice([i for i in range(len(self.communities)) if i != Cj_index])
+        community_inf_change[external_destination_community_idx] = (inf_i-inf_i_Cj)/2
+        
+        
+        
+        mod_after_p1 = (self.eta+inf_i_Cj)/(self.total_network_influence+inf_i)
+        
+        updatedSigma = self.getUpdatedSigma(self.community_out_influences+community_inf_change, self.community_in_influences+community_inf_change)
+        
+        mod_after_p2 = updatedSigma/((self.total_network_influence+inf_i)**2)
+        
+        mod_after = mod_after_p1 - mod_after_p2
+        
+        deltaAddMod = mod_before - mod_after
+       
+        return deltaAddMod,inf_i_Cj,inf_i,Cj_index
+    
+    
     def computeDeltaNodeMoving(self):
         nodes_delta_mov=[]
         ordered_spread = self.ratio_community_members
@@ -702,34 +728,7 @@ class DirNODEC:
         return self.graph.induced_subgraph(g, implementation="auto")
 
 """
-############# DirNODEC #####################
-    ##For each member of the target community compute the modularity change if deleted
-    def computeDeltaNodeDeletion(self):
-        total_internal_edges = sum(np.array(self.E_Ci))/(2)
-        range_nodes= range(0,len(self.target_community))
-
-        node_internal_degree=[self.degi_Ci[index][self.getNodeCommunity(node)] for (index,node) in zip(range_nodes,self.target_community)]
-        m = self.graph.ecount()
-        degrees = np.array(self.getTargetNodeDegrees())
-        q1_links = (total_internal_edges - node_internal_degree)/(m - degrees)
-        group_degs=self.community_degrees
-        node_deg_by_group=self.degi_Ci
-        expected_impact = np.power((group_degs-node_deg_by_group), 2).sum(1)
-        q1_degrees = expected_impact / (4 * (m - degrees) ** 2)
-        modularity_after = q1_links - q1_degrees
-        modularity_before = self.getModularity(self.graph,self.communities_object)
-        delta_deletion = (modularity_before - modularity_after).tolist()
-
-        if -1 in self.target_community:
-            mask = np.in1d(self.target_community, [-1])
-            marr=np.ma.masked_array(mask=mask,data=delta_deletion)
-            delta_deletion=marr
-
-        best_index=np.argmax(delta_deletion)
-        best_node_to_delete = self.target_community[best_index]
-
-        return delta_deletion[best_index],best_node_to_delete
-    
+############# NODEC Archive #####################
     
     def computeDeltaNodeAddition(self):
         ordered_spread=self.ratio_community_members

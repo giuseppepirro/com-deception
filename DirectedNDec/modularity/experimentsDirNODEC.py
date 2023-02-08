@@ -28,10 +28,14 @@ class ExperimentsDirNODEC:
         while (True):
             ##this gives the best value the one giving hghest DELTA_del
             delta_del,best_node_to_delete=self.nodec.computeDeltaNodeDeletion()
-            print("Best Delta=",delta_del, " , Best Node=", best_node_to_delete)
-            exit()#Stop at deletion
+            print("Best Del Delta=",delta_del, " , Best Node=", best_node_to_delete)
+            
             #this gives a single value as we are adding a new node
-            delta_add,deg_i_Cj,deg_i,Cj_index=self.nodec.computeDeltaNodeAddition()
+            delta_add,inf_i_Cj,inf_i,Cj_index=self.nodec.computeDeltaNodeAddition()
+            
+            print("Best Add Delta=",delta_add, " , Internal node influence= ", inf_i_Cj, "Total node influence= ", inf_i)
+            exit()
+            
             ##this gives a value for each community member
             delta_move,move_details= self.nodec.computeDeltaNodeMoving()
 
