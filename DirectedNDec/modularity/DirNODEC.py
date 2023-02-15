@@ -347,9 +347,7 @@ class DirNODEC:
     def read_weighted_network(self,name):
         self.dataset_name=name
         
-        data = pd.read_csv(self.local_path +name+"/"+ name+ ".edgelist")
-        
-        
+        data = pd.read_csv(self.local_path +name+"/"+ name+ ".edgelist", dtype={'source':str, 'target':str})
         
         #print(data.iloc[:10, :])
         
@@ -359,25 +357,45 @@ class DirNODEC:
         graph = ig.Graph.TupleList(data.itertuples(index=False), directed=True, weights=True)
         #print(graph.get_adjacency(attribute="weight")[0])
         self.graph=graph
+        #print(self.graph)
+        #exit()
+        #self.graph.vs["name"]=range(0,len(self.graph.vs))
+          
+        #print(self.graph.es[self.graph.get_eid('5', '6')]["weight"])
         
-        self.graph.vs["name"]=range(0,len(self.graph.vs))
-       
+        #for i in self.graph.es:
+        #    print(i)
+        
+        #print(self.graph.es[self.graph.get_eid(]["weight"])
+        
+        #print(self.graph)
+        #exit()
         return graph
     
     def read_directed_graph(self,name):
         path=self.local_path + name
         obj_path=path+ ".obj"
-        file_path=path+".edgelist"
+        file_path=path+"/rete.edgelist"
+        print(file_path)
         self.dataset_name = name
         if os.path.exists(obj_path):
+            print("Hi")
             print("Reading preprocessed network=",name)
             with open(obj_path, "rb") as file:
                 self.graph = pickle.load(file)
+                
         else:
+            print("Hello")
             self.graph=ig.Graph.Read_Ncol(file_path, directed=True)
             with open(obj_path, "wb") as file:
                 pickle.dump(self.graph, file)
         self.node_count=self.graph.vcount()
+        
+        print(self.graph)
+        for i in self.graph.vs:
+            print(i)
+            
+        exit()
         return self.graph
 
     """
@@ -409,10 +427,9 @@ class DirNODEC:
 
     def getInducedSubgraph(self):
         com_excluding_deleted=self.target_community
-        print(com_excluding_deleted)
+        
         com_excluding_deleted[:] = (value for value in com_excluding_deleted if value != -1)
-        print(com_excluding_deleted)
-        #exit()
+        
         return self.graph.induced_subgraph(com_excluding_deleted, implementation="auto")
 
     def getTargetNodeDegrees(self):
@@ -445,16 +462,14 @@ class DirNODEC:
         communityDictionary = dict()
         index = 0
         for comm in self.communities:
-            for co in comm:
-                communityDictionary.update({co: index})
+            for nod in comm:
+                communityDictionary.update({nod: index})
             index += 1
         return communityDictionary
 
     def getNodeCommunity(self, node):
-        if node<=self.node_count:
-            return self.community_membership_dict[node]
-        else:
-            return -1
+        return self.community_membership_dict[node]
+        
 
     def convertEdgeIdInducedToOriginal(self, e):
         converted_e = tuple((self.getOriginalGraphNodeLabel(self.induced_subgraph, e.source),
@@ -550,7 +565,6 @@ class DirNODEC:
         node_internal_influence=[self.degi_Ci_inf[index][self.getNodeCommunity(node)] for (index,node) in zip(range_nodes,self.target_community)]
         
         
-        
         influences_of_target_nodes = np.array(self.getTargetNodeInfluences())
         
         
@@ -571,18 +585,11 @@ class DirNODEC:
             community_in_inf_change = self.degi_Ci_outInf[delCandidateIdx]
             community_in_inf_change[self.target_community_id] = node_internal_influence[delCandidateIdx] + (sum(self.degi_Ci_inInf[delCandidateIdx])-self.degi_Ci_inInf[delCandidateIdx][self.target_community_id])
             
-            """
-            #print("====", mod_after_p1)
-            print("*****************")
-            print(self.communities)
-            print("---------------------")
-            
-            print(self.community_out_influences)
-            print("---------------------")
-            print(community_out_inf_change)
-            """
-            
-            updatedSigma = self.getUpdatedSigma(self.community_out_influences-community_out_inf_change[delCandidateIdx], self.community_in_influences-community_in_inf_change[delCandidateIdx])
+            #print("Del candidate idx = ", delCandidateIdx)
+            #print(community_out_inf_change)
+            #print(self.community_out_influences)
+            #print("***** = ",community_out_inf_change)
+            updatedSigma = self.getUpdatedSigma(self.community_out_influences-community_out_inf_change, self.community_in_influences-community_in_inf_change)
             
             mod_after_p2 = updatedSigma/((I-influences_of_target_nodes[delCandidateIdx])**2)
             
@@ -754,56 +761,5 @@ class DirNODEC:
     ## the original node ids are maintained in the attribute "names" of the nodes
     def getCommunityInducedSubgraph(self, g):
         return self.graph.induced_subgraph(g, implementation="auto")
-
-"""
-############# NODEC Archive #####################
-
-    def computeDeltaNodeMoving(self):
-        nodes_delta_mov=[]
-        ordered_spread = self.ratio_community_members
-        for node in self.target_community:
-            if node!=-1:
-                node_to_move = node
-                node_to_move_current_degree = self.graph.degree(node_to_move)
-                current_community=self.getNodeCommunity(node_to_move)
-                current_community_internal_edges = self.E_Ci[current_community]
-                current_community_degree = self.community_degrees[current_community]
-
-                node_deg_current_com = \
-                    self.degi_Ci[self.target_community.index(node)][current_community]
-
-                new_community = ordered_spread.index(ordered_spread[np.argmin(ordered_spread)])
-
-                if new_community!=current_community:
-                    new_community_degree = self.community_degrees[new_community]
-                    new_community_nodes= len(self.communities[new_community])
-
-                    new_community_internal_edges = self.E_Ci[new_community]
-
-                    node_deg_already_new_com = \
-                        self.degi_Ci[self.target_community.index(node)][new_community]
-
-                    new_edges_new_com=int(math.ceil(new_community_nodes-node_deg_already_new_com)*0.9)
-
-                    edges_to_be_deleted=node_deg_current_com
-                    new_node_degree = node_to_move_current_degree + new_edges_new_com-edges_to_be_deleted
-                    M = self.graph.ecount()
-                    M1=M+new_node_degree
-                    removing_i_from_Ci=((current_community_internal_edges-(node_deg_current_com))/2*M-((current_community_degree-node_deg_current_com)**2))/(4*M*M)
-                    adding_i_to_Cj=((new_community_internal_edges+(new_edges_new_com))/4*M1*M1-((new_community_degree+new_edges_new_com)**2))/(4*M1*M1)
-                    delta_move=removing_i_from_Ci+adding_i_to_Cj
-                    nodes_delta_mov.append(np.array([node_to_move,delta_move,new_community,new_edges_new_com,edges_to_be_deleted,node_deg_already_new_com]))
-                else:
-                    nodes_delta_mov.append(np.array([node_to_move,-1,-1,-1,-1,-1]))
-            else:
-                nodes_delta_mov.append(np.array([-1, -1, -1, -1, -1, -1]))
-
-        nodes_delta_mov=np.array(nodes_delta_mov)
-        best_index=np.argmax(nodes_delta_mov[:,1])
-        best_delta=nodes_delta_mov[best_index][1]
-            #
-        return best_delta,nodes_delta_mov[best_index]
-############# END
-"""
 
     
