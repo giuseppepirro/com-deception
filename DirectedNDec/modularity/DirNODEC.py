@@ -66,6 +66,7 @@ class DirNODEC:
         
         
         
+        
          
         
 
@@ -330,59 +331,20 @@ class DirNODEC:
     def getInducedGraphNodeId(self, graph, nodeLabel):
         return graph.vs[nodeLabel]["name"]
     
-    
-    def read_network(self, name):
-        self.dataset_name = name
-        #print(self.local_path+name + ".edgelist")
-        
-        #self.graph = ig.read(self.local_path + name + ".edgelist", directed=True)
-        #self.graph = ig.read(self.local_path + name + ".edgelist", directed=True, w)
-        
-        self.graph=ig.Graph.Read_Ncol(self.local_path + name + ".edgelist", directed=True, weights=True)
-        #self.graph.vs["name"]=range(0,len(self.graph.vs))
-        
-        return self.graph
-    
+   
     #Create and initialize a Graph object from the edge list
     def read_weighted_network(self,name):
         self.dataset_name=name
         
         data = pd.read_csv(self.local_path +name+"/"+ name+ ".edgelist", dtype={'source':str, 'target':str})
         
-        
         self.weights=np.array(data["weight"])
-        
         
         graph = ig.Graph.TupleList(data.itertuples(index=False), directed=True, weights=True)
         
         self.graph=graph
         
         return graph
-    
-    def read_directed_graph(self,name):
-        path=self.local_path + name
-        obj_path=path+ ".obj"
-        file_path=path+"/rete.edgelist"
-        print(file_path)
-        self.dataset_name = name
-        if os.path.exists(obj_path):
-            
-            print("Reading preprocessed network=",name)
-            with open(obj_path, "rb") as file:
-                self.graph = pickle.load(file)
-                
-        else:
-            
-            self.graph=ig.Graph.Read_Ncol(file_path, directed=True)
-            with open(obj_path, "wb") as file:
-                pickle.dump(self.graph, file)
-        self.node_count=self.graph.vcount()
-        
-        
-            
-        
-        return self.graph
-
     
 
     def find_nearest(self,array, value):
@@ -450,14 +412,10 @@ class DirNODEC:
         return self.community_membership_dict[node]
         
         
-        
-
     def convertEdgeIdInducedToOriginal(self, e):
         converted_e = tuple((self.getOriginalGraphNodeLabel(self.induced_subgraph, e.source),
                              self.getOriginalGraphNodeLabel(self.induced_subgraph, e.target), e["weight"]))
         return converted_e
-
-
     
     #ORIGINAL
     def getDeceptionScore(self, after_updates):
@@ -490,40 +448,8 @@ class DirNODEC:
         dec_score = first_part * second_part
 
         return dec_score
-    """
-    def getDeceptionScore(self,communities):
-        number_communities=len(communities)
-        #number of the targetCommunity members in the various communities
-        print(number_communities)
-        member_for_community=[]
-        for member in self.target_community:
-            #1 in the position i if member is in the ith community
-            current_community_member=[1 if member in community else 0 for community in communities]
-            member_for_community.append(current_community_member)
-        # @TODO: This is ok
-        #Each index of the list (representing the id of a community) reports the number of members of the target community included
-        member_for_community = [sum(x) for x in zip(*member_for_community)]
-        print(member_for_community)
-        #print("member_for_community=",member_for_community)
-
-        #@TODO: This is ok
-        #ratio of the targetCommunity members in the various communities
-        ratio_community_members=[members_for_c/len(com) for (members_for_c,com) in zip(member_for_community,communities)]
-
-        #print("ratio_community_members=",ratio_community_members)
-
-        # @TODO: This is ok
-        ##In how many commmunities are the members of the target spread?
-        spread_members=sum([1 if value_per_com>0 else 0 for value_per_com in ratio_community_members])
-        
-        second_part = 1 / 2 * ((spread_members - 1) / number_communities) + 1/2 * (1 - sum(ratio_community_members) / spread_members)
-        #####
-        #print(self.community_size)
-        num_components = len(self.getInducedSubgraph().decompose(mode=ig.STRONG))
-        first_part = 1 - ((num_components - 1) / (self.community_size - 1))
-        dec_score =first_part * second_part
-        return dec_score
-    """
+   
+    
     def plot_communities(self,communities):
         node_labels = range(0, self.graph.vcount())
         ig.plot(communities, mark_groups=True, vertex_size=20, vertex_label=node_labels)
@@ -535,11 +461,6 @@ class DirNODEC:
 
     
     def computeDeltaNodeDeletion(self):
-        
-        #print("totInf = ",self.total_network_influence)
-        #print("eta = ",self.eta)
-        
-        #exit()
         
         range_nodes= range(0,len(self.target_community))
         #print("...  ",range_nodes)
@@ -566,10 +487,7 @@ class DirNODEC:
             community_in_inf_change = self.degi_Ci_outInf[delCandidateIdx]
             community_in_inf_change[self.target_community_id] = node_internal_influence[delCandidateIdx] + (sum(self.degi_Ci_inInf[delCandidateIdx])-self.degi_Ci_inInf[delCandidateIdx][self.target_community_id])
             
-            #print("Del candidate idx = ", delCandidateIdx)
-            #print(community_out_inf_change)
-            #print(self.community_out_influences)
-            #print("***** = ",community_out_inf_change)
+            
             updatedSigma = self.getUpdatedSigma(self.community_out_influences-community_out_inf_change, self.community_in_influences-community_in_inf_change)
             
             mod_after_p2 = updatedSigma/((I-influences_of_target_nodes[delCandidateIdx])**2)
@@ -595,37 +513,42 @@ class DirNODEC:
         Cj_index= int(ordered_spread.index(ordered_spread[np.argmin(ordered_spread)]))
         Cj =self.communities[Cj_index]
         
+        #inf_i_Cj= int(len(Cj)-(math.ceil(len(Cj))*0.1))
+        #inf_i= int(math.ceil(inf_i_Cj*1.2))
         
-        inf_i_Cj= int(len(Cj)-(math.ceil(len(Cj))*0.1))
-        
-        inf_i= int(math.ceil(inf_i_Cj*1.2))
-        
+        #setting internal influence of the new node to be equal to the average influence 
+        #of the destination community
+        inf_i_Cj= int(self.community_influences[Cj_index]/len(Cj))
+        inf_i= math.ceil(inf_i_Cj*1.2)
         
         #recording the change that affects the in/out influence of community Cj
         #as a result of adding node i
         
-        community_inf_change = np.zeros(len(self.communities))
-        community_inf_change[Cj_index] = inf_i_Cj+(inf_i-inf_i_Cj)/2
+        community_out_inf_change = np.zeros(len(self.communities))
+        community_in_inf_change = np.zeros(len(self.communities))
+       
         
-        external_source_community_idx = random.choice([i for i in range(len(self.communities)) if i != Cj_index])
-        community_inf_change[external_source_community_idx] = (inf_i-inf_i_Cj)/2
+        #external_source_community_idx = random.choice([i for i in range(len(self.communities)) if i != Cj_index])
+        community_out_inf_change[Cj_index] = inf_i_Cj
+        #community_out_inf_change[external_source_community_idx] = (inf_i-inf_i_Cj)/2
         
+        #For the moment, the new node can add only outgoing inter-community edges
         external_destination_community_idx = random.choice([i for i in range(len(self.communities)) if i != Cj_index])
-        community_inf_change[external_destination_community_idx] = (inf_i-inf_i_Cj)/2
+        community_in_inf_change[Cj_index] = inf_i_Cj+(inf_i-inf_i_Cj)
+        community_in_inf_change[external_destination_community_idx] = (inf_i-inf_i_Cj)/2
         
         
+        mod_after_p1 = (self.eta+inf_i_Cj)/(I+inf_i)
         
-        mod_after_p1 = (self.eta+inf_i_Cj)/(self.total_network_influence+inf_i)
+        updatedSigma = self.getUpdatedSigma(self.community_out_influences+community_out_inf_change, self.community_in_influences+community_in_inf_change)
         
-        updatedSigma = self.getUpdatedSigma(self.community_out_influences+community_inf_change, self.community_in_influences+community_inf_change)
-        
-        mod_after_p2 = updatedSigma/((self.total_network_influence+inf_i)**2)
+        mod_after_p2 = updatedSigma/((I+inf_i)**2)
         
         mod_after = mod_after_p1 - mod_after_p2
         
         deltaAddMod = mod_before - mod_after
        
-        return deltaAddMod,inf_i_Cj,inf_i,Cj_index
+        return deltaAddMod, inf_i_Cj, inf_i, Cj_index, external_destination_community_idx
     
     
     def computeDeltaNodeMoving(self):
