@@ -349,27 +349,14 @@ class DirNODEC:
         
         data = pd.read_csv(self.local_path +name+"/"+ name+ ".edgelist", dtype={'source':str, 'target':str})
         
-        #print(data.iloc[:10, :])
         
         self.weights=np.array(data["weight"])
         
-        #Modified
+        
         graph = ig.Graph.TupleList(data.itertuples(index=False), directed=True, weights=True)
-        #print(graph.get_adjacency(attribute="weight")[0])
+        
         self.graph=graph
-        #print(self.graph)
-        #exit()
-        #self.graph.vs["name"]=range(0,len(self.graph.vs))
-          
-        #print(self.graph.es[self.graph.get_eid('5', '6')]["weight"])
         
-        #for i in self.graph.es:
-        #    print(i)
-        
-        #print(self.graph.es[self.graph.get_eid(]["weight"])
-        
-        #print(self.graph)
-        #exit()
         return graph
     
     def read_directed_graph(self,name):
@@ -379,32 +366,24 @@ class DirNODEC:
         print(file_path)
         self.dataset_name = name
         if os.path.exists(obj_path):
-            print("Hi")
+            
             print("Reading preprocessed network=",name)
             with open(obj_path, "rb") as file:
                 self.graph = pickle.load(file)
                 
         else:
-            print("Hello")
+            
             self.graph=ig.Graph.Read_Ncol(file_path, directed=True)
             with open(obj_path, "wb") as file:
                 pickle.dump(self.graph, file)
         self.node_count=self.graph.vcount()
         
-        print(self.graph)
-        for i in self.graph.vs:
-            print(i)
+        
             
-        exit()
+        
         return self.graph
 
-    """
-    def read_unweighted_graph(self, name):
-        self.dataset_name=name
-        graph=igraph.read(self.local_path + name + ".edgelist", directed=False)
-        self.graph=graph
-        return graph
-    """
+    
 
     def find_nearest(self,array, value):
         array = np.asarray(array)
@@ -469,6 +448,8 @@ class DirNODEC:
 
     def getNodeCommunity(self, node):
         return self.community_membership_dict[node]
+        
+        
         
 
     def convertEdgeIdInducedToOriginal(self, e):
