@@ -409,6 +409,7 @@ class DirNODEC:
         return communityDictionary
 
     def getNodeCommunity(self, node):
+        
         return self.community_membership_dict[node]
         
         
@@ -551,80 +552,79 @@ class DirNODEC:
         return deltaAddMod, inf_i_Cj, inf_i, Cj_index, external_destination_community_idx
     
     
+    
     def computeDeltaNodeMoving(self):
         nodes_delta_mov=[]
+        
         ordered_spread = self.ratio_community_members
         
         I = self.total_network_influence
         
         mod_before = (self.eta/I)- (self.sigma/(I**2))
-        
+    
         for node in self.target_community:
-            if node!=-1:
-                node_to_move = node
-                nod_idx_in_target = self.target_community.index(node)
-                node_to_move_current_inf = self.graph.strength(node_to_move, mode='all', weights='weight')
-                current_community=self.getNodeCommunity(node_to_move)
-
-                node_deg_current_com = \
-                    self.degi_Ci[nod_idx_in_target][current_community]
+            
+            nod_idx_in_target = self.target_community.index(node)
+            
+            node_current_inf = self.graph.strength(node, mode='all', weights='weight')
+            
+            current_community=self.getNodeCommunity(node)
+            
+            node_inf_current_com = self.degi_Ci_inf[nod_idx_in_target][current_community]
+            
+            new_community = ordered_spread.index(ordered_spread[np.argmin(ordered_spread)])
+            
+            if new_community != current_community:
                 
-                node_inf_current_com = self.degi_Ci_inf[nod_idx_in_target][current_community]
+                new_community_len= len(self.communities[new_community])
                 
-                new_community = ordered_spread.index(ordered_spread[np.argmin(ordered_spread)])
-
-                if new_community!=current_community:
-                    new_community_nodes= len(self.communities[new_community])
-
-                    node_deg_already_new_com = \
-                        self.degi_Ci[nod_idx_in_target][new_community]
-                    
-                    new_edges_new_com=int(math.ceil(new_community_nodes-node_deg_already_new_com)*0.9)
-                    
-                    edges_to_be_deleted=node_deg_current_com
-                    
-                    new_node_inf = node_to_move_current_inf + new_edges_new_com-edges_to_be_deleted
-                    
-                    mod_after_p1 = (self.eta - node_inf_current_com + new_edges_new_com) / (I-node_to_move_current_inf+new_node_inf)
-                    
-                    
-                    
-                    community_out_inf_change_current = self.degi_Ci_inInf[nod_idx_in_target]
-                    community_out_inf_change_current[current_community] = node_inf_current_com + (sum(self.degi_Ci_outInf[nod_idx_in_target])-self.degi_Ci_outInf[nod_idx_in_target][current_community])
-                    
-                    
-                    community_in_inf_change_current = self.degi_Ci_outInf[nod_idx_in_target]
-                    community_in_inf_change_current[current_community] = node_inf_current_com + (sum(self.degi_Ci_inInf[nod_idx_in_target])-self.degi_Ci_inInf[nod_idx_in_target][current_community])
-                    
-                    community_out_inf_change_new = self.degi_Ci_inInf[nod_idx_in_target]
-                    community_out_inf_change_new[new_community] = new_edges_new_com + (sum(self.degi_Ci_outInf[nod_idx_in_target])-self.degi_Ci_outInf[nod_idx_in_target][new_community])
-                    
-                    
-                    community_in_inf_change_new = self.degi_Ci_outInf[nod_idx_in_target]
-                    community_in_inf_change_new[new_community] = new_edges_new_com + (sum(self.degi_Ci_inInf[nod_idx_in_target])-self.degi_Ci_inInf[nod_idx_in_target][new_community])
-                    
-                    
-                    updatedSigma = self.getUpdatedSigma(self.community_out_influences-community_out_inf_change_current+community_out_inf_change_new, self.community_in_influences-community_in_inf_change_current+community_in_inf_change_new)
-                    
-                    
-                    mod_after_p2 = updatedSigma/((I-node_to_move_current_inf+new_node_inf)**2)
-                    
-                    mod_after = mod_after_p1 - mod_after_p2
-                    
-                    delta_mov_mod =mod_before - mod_after
-                    
-                    nodes_delta_mov.append(np.array([node_to_move,delta_mov_mod,new_community,new_edges_new_com,edges_to_be_deleted,node_deg_already_new_com]))
-                else:
-                    nodes_delta_mov.append(np.array([node_to_move,-1,-1,-1,-1,-1]))
+                node_inf_already_in_new_com = self.degi_Ci_inf[nod_idx_in_target][new_community]
+                
+                new_inf_new_com = self.community_influences[new_community]/new_community_len - node_inf_already_in_new_com
+                
+                node_inf_in_new_com = node_inf_already_in_new_com + new_inf_new_com
+                
+                new_node_inf = (node_current_inf - node_inf_current_com) + new_inf_new_com
+                
+                
+                mod_after_p1 = (self.eta - node_inf_current_com + node_inf_in_new_com) / (I-node_current_inf+new_node_inf)
+        
+                community_out_inf_change_current = np.zeros(len(self.communities))
+                community_out_inf_change_current[current_community] = node_inf_current_com + (sum(self.degi_Ci_outInf[nod_idx_in_target])-self.degi_Ci_outInf[nod_idx_in_target][current_community])
+                
+                
+                community_in_inf_change_current = np.zeros(len(self.communities))
+                community_in_inf_change_current[current_community] = node_inf_current_com + (sum(self.degi_Ci_inInf[nod_idx_in_target])-self.degi_Ci_inInf[nod_idx_in_target][current_community])
+                
+                community_out_inf_change_new = np.zeros(len(self.communities))
+                community_out_inf_change_new[new_community] = new_inf_new_com + (sum(self.degi_Ci_outInf[nod_idx_in_target])-self.degi_Ci_outInf[nod_idx_in_target][current_community]-self.degi_Ci_outInf[nod_idx_in_target][new_community])
+                
+                
+                community_in_inf_change_new = np.zeros(len(self.communities))
+                community_in_inf_change_new[new_community] = new_inf_new_com + (sum(self.degi_Ci_inInf[nod_idx_in_target])-self.degi_Ci_outInf[nod_idx_in_target][current_community]-self.degi_Ci_inInf[nod_idx_in_target][new_community])
+                
+                
+                updatedSigma = self.getUpdatedSigma(self.community_out_influences-community_out_inf_change_current+community_out_inf_change_new, self.community_in_influences-community_in_inf_change_current+community_in_inf_change_new)
+                
+                
+                mod_after_p2 = updatedSigma/((I-node_current_inf+new_node_inf)**2)
+                
+                mod_after = mod_after_p1 - mod_after_p2
+                
+                delta_mov_mod =mod_before - mod_after
+                
+                nodes_delta_mov.append(np.array([node, delta_mov_mod, new_community, new_inf_new_com]))
             else:
-                nodes_delta_mov.append(np.array([-1, -1, -1, -1, -1, -1]))
+                nodes_delta_mov.append(np.array([node, -1, -1, -1]))
+        
 
         nodes_delta_mov=np.array(nodes_delta_mov)
         best_index=np.argmax(nodes_delta_mov[:,1])
         best_delta=nodes_delta_mov[best_index][1]
             #
         return best_delta,nodes_delta_mov[best_index]
-    
+                
+
     
     def getTotalNetworkInfluence(self):
         

@@ -26,6 +26,7 @@ class ExperimentsDirNODEC:
         beta = budget
 
         while (True):
+            #print("*****", beta, "*****")
             ##this gives the best value the one giving hghest DELTA_del
             delta_del,best_node_to_delete=self.nodec.computeDeltaNodeDeletion()
             #print("Best Del Delta=",delta_del, " , Best Node=", best_node_to_delete)
@@ -33,20 +34,6 @@ class ExperimentsDirNODEC:
             #this gives a single value as we are adding a new node
             delta_add,inf_i_Cj,inf_i,Cj_index, external_community_idx=self.nodec.computeDeltaNodeAddition()
             
-            """
-            print("^^^^^^^^^^^^^^^^^^^^^^^^^")
-            print("Addition details=> ", delta_add, inf_i_Cj, inf_i, Cj_index)
-            print(self.nodec.graph.summary())
-            print(self.nodec.graph)
-            print(self.nodec.communities)
-            self.performNewNodeAddition(inf_i_Cj, inf_i, Cj_index, external_community_idx)
-            print("&&&&&&&&&&&&&&&&&&&&&&&&&")
-            print("added node: ", self.nodec.graph.vcount())
-            print(self.nodec.graph.summary())
-            print(self.nodec.graph)
-            print(self.nodec.communities)
-            exit()
-            """
             
             #print("Best Add Delta=",delta_add, " , Internal node influence= ", inf_i_Cj, "Total node influence= ", inf_i)
             
@@ -57,7 +44,7 @@ class ExperimentsDirNODEC:
             #print("#################")
             #print("Best Mov Delta=",delta_move, " , Move_details= ", move_details)
             #print("#################")
-            
+            #exit()
             #deltas=[delta_add,delta_del,delta_move]
             #best_index=deltas.index(max(deltas))
             #print(deltas)
@@ -67,17 +54,17 @@ class ExperimentsDirNODEC:
             if float(delta_move)>0:
                 
                 self.performNodeMove(move_details)
-                print("Move")
+                print("Moved node ", move_details[0])
             else:
                 if delta_del > delta_add:
                     
                     self.performNodeDeletion(best_node_to_delete)
-                    
+                    print("deleted one node (", best_node_to_delete,")")
                     self.performNewNodeAddition(inf_i_Cj, inf_i, Cj_index, external_community_idx)
-                    
+                    print("added one node")
                 else:
                     self.performNewNodeAddition(inf_i_Cj, inf_i, Cj_index, external_community_idx)
-                    
+                    print("added one node")
             beta = beta - 1
             if (beta == 0) or self.nodec.target_community.count(-1)==self.nodec.initial_community_size-2: ##if the community contains all -1 then stop !
                 break
@@ -213,48 +200,46 @@ class ExperimentsDirNODEC:
     def performNodeMove(self, move_details):
         node_to_move= move_details[0] #node to move from Ci in Cj
         new_community=int(move_details[2]) #  Cj
-        old_community=self.nodec.getNodeCommunity(node_to_move) #Ci
-        new_edges_new_com=float(move_details[3]) #total edges in Cj
+        old_community=self.nodec.communities[self.nodec.getNodeCommunity(node_to_move)] #Ci
+        new_inf_new_com=float(move_details[3]) #total edges in Cj
         
-        edges_to_be_deleted=float(move_details[4]) #edges in in Ci
-        node_deg_already_new_com=float(move_details[5]) #nodes tha alredy has in Cj
-        nodex_index_in_com=self.nodec.target_community.index(node_to_move)
+        #the old community is the target community
+        #node_index_in_old_com=self.nodec.target_community.index(node_to_move)
 
-        target_com=self.nodec.communities[new_community]
-        target_nodes_indexes = range(0, len(target_com))
+        destination_com=self.nodec.communities[new_community]
+        #destination_nodes_indexes = range(0, len(destination_com))
 
-        ## EDGE ADDITIONS in Cj
-        for i in target_nodes_indexes:
-            if not (self.nodec.graph.are_connected(node_to_move, target_com[i]) and self.nodec.graph.are_connected(target_com[i],node_to_move)):
-                self.nodec.graph.add_edges([(node_to_move, target_com[i])])
 
+        
         ## EDGE DELETIONS in Ci
-        neighs = self.nodec.graph.neighborhood(vertices=node_to_move, order=1, mode="all", mindist=1)
-        for n in neighs:
-            if old_community==self.nodec.getNodeCommunity(str(n)):
-                if (self.nodec.graph.are_connected(node_to_move, n) ):
-                    self.nodec.graph.delete_edges([(node_to_move, n)])
-                else:
-                    if (self.nodec.graph.are_connected(n,node_to_move)):
-                        self.nodec.graph.delete_edges([(n,node_to_move)])
+        out_neighs = [self.nodec.graph.vs[i]["name"] for i in self.nodec.graph.neighbors(node_to_move, mode="out") if i in old_community]
+        in_neighs = [self.nodec.graph.vs[i]["name"] for i in self.nodec.graph.neighbors(node_to_move, mode="in") if i in old_community]
+        
+        
+        
+        for n in range(1, len(out_neighs)): #keep the first out-edge to preserve communication
+            self.nodec.graph.delete_edges( [(node_to_move, out_neighs[n])] )
+        
+        for n in range(1, len(in_neighs)):  #keep the first in-edge to preserve communication
+            self.nodec.graph.delete_edges( [(in_neighs[n], node_to_move)] )
+        
+        node_out_neighs = [self.nodec.graph.vs[i]["name"] for i in self.nodec.graph.neighbors(node_to_move, mode="out")]
+        
+        new_neighbors_in_new_com = [i for i in destination_com if i not in node_out_neighs]
+        
+        edge_weight = new_inf_new_com/len(new_neighbors_in_new_com)
+        
+        ## EDGE ADDITIONS in Cj
+        for i in new_neighbors_in_new_com:
+            self.nodec.graph.add_edges([(node_to_move, i)])
+            self.nodec.graph.es[self.nodec.graph.get_eid(node_to_move, i)]["weight"] = edge_weight
+     
+        
         degree_in_com_copy = self.nodec.degi_Ci
-        node_gree_in_its_com = degree_in_com_copy[nodex_index_in_com, old_community]
-
-        degree_in_com_copy[nodex_index_in_com,old_community] = 0##its degree becomes 0 in Ci
-
-        degree_in_com_copy[nodex_index_in_com, new_community] = new_edges_new_com-node_deg_already_new_com#degree_in_com_copy[nodex_index_in_com, new_community]
-
+        
         self.nodec.degi_Ci = degree_in_com_copy
 
-        coms_degs_copy = self.nodec.community_degrees
-        coms_degs_copy[old_community] = coms_degs_copy[old_community] - node_gree_in_its_com
-        coms_degs_copy[new_community] = coms_degs_copy[new_community] +(new_edges_new_com-node_deg_already_new_com)
-        self.nodec.community_degrees = coms_degs_copy
 
-        internal_edges_copy = self.nodec.E_Ci
-        internal_edges_copy[old_community] = internal_edges_copy[old_community] - node_gree_in_its_com
-        internal_edges_copy[new_community] = internal_edges_copy[new_community] + (new_edges_new_com-node_deg_already_new_com)
-        self.nodec.E_Ci = internal_edges_copy
         return self.nodec.graph
 
 
@@ -284,7 +269,7 @@ class ExperimentsDirNODEC:
         print("Initial modularity=", self.nodec.getModularity(self.nodec.graph,self.nodec.communities_object))
         print("Initial decScore=", deception_before)
         print("Initial number of nodes and edges=", self.nodec.graph.ecount(),self.nodec.graph.vcount())
-        
+        #print(self.nodec.graph)
         ##### BEGIN DirNODEC HERE
         start = timeit.default_timer()
         new_graph=self.com_decept_nodec(budget)
@@ -305,7 +290,8 @@ class ExperimentsDirNODEC:
         print("Final ComH=", self.nodec.target_community)
         print("Final modularity=", self.nodec.getModularity(g,self.nodec.communities_after_object))
         print("Final number of nodes and edges=", new_graph.ecount(),new_graph.vcount())
-
+        #print(self.nodec.graph)
+        
         self.file_experiments.write(
            "\n" + network + "\t" + detection_algo + "\t" + str(budget) + "\t" + str(deception_before) + "\t" +
            str(deception_after) + "\t" +
@@ -338,7 +324,7 @@ class ExperimentsDirNODEC:
 
 def main():
     dataset_path = "./datasets/"
-    datasets = ["rete"]  # "terrorist2","terrorist1","blogcatalog" #"pubmed","webkb", "cora", "citeseer","facebook","netscience"
+    datasets = ["freeman"]  # "terrorist2","terrorist1","blogcatalog" #"pubmed","webkb", "cora", "citeseer","facebook","netscience"
     detection_algorithms = ["leiden"]  #louv # "walk" "infomap" "labelp" "greedy" # not in the paper "btw","eig","opt"
     budget_updates = [2]
     internal_edge_sample_sizes = [0.5]
