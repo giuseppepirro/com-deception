@@ -6,8 +6,7 @@ import copy
 import random
 import timeit
 import math
-import os
-import pickle
+import sys
 import pandas as pd
 
 from cdlib import algorithms
@@ -336,13 +335,22 @@ class DirNODEC:
     def read_weighted_network(self,name):
         self.dataset_name=name
         
-        data = pd.read_csv(self.local_path +name+"/"+ name+ ".edgelist", dtype={'source':str, 'target':str})
         
-        self.weights=np.array(data["weight"])
-        
-        graph = ig.Graph.TupleList(data.itertuples(index=False), directed=True, weights=True)
+        try:
+            data = pd.read_csv(self.local_path +name + ".csv", dtype={'source':str, 'target':str})
+            
+            
+            self.weights=np.array(data["weight"])
+            
+            graph = ig.Graph.TupleList(data.itertuples(index=False), directed=True, weights=True)
+            
+            #print(graph)
+        except:
+            print("Error: can't recognise dataset format!")
+            exit()
         
         self.graph=graph
+        
         
         return graph
     
@@ -442,7 +450,9 @@ class DirNODEC:
         
         second_part = 1 / 2 * ((spread_members - 1) / number_communities) + 1 / 2 * (
                     1 - sum(ratio_community_members) / spread_members)
-
+        
+        print("**************")
+        print(self.target_community)
         num_components = len(self.getInducedSubgraph().decompose())
         first_part = 1 - ((num_components - 1) / (self.community_size - 1))
 
@@ -462,6 +472,12 @@ class DirNODEC:
 
     
     def computeDeltaNodeDeletion(self):
+        
+        #Cannot delete all target community members
+        if len(self.target_community) <= 1:
+            deltaDel = -sys.maxsize
+            return deltaDel, -1
+        
         
         range_nodes= range(0,len(self.target_community))
         #print("...  ",range_nodes)
@@ -556,6 +572,11 @@ class DirNODEC:
     def computeDeltaNodeMoving(self):
         nodes_delta_mov=[]
         
+        #Don't move if the target community is a singleton
+        if len(self.target_community) <= 1:
+            deltaMov = -sys.maxsize
+            return deltaMov, [-1, -1, -1, -1]
+        
         ordered_spread = self.ratio_community_members
         
         I = self.total_network_influence
@@ -621,7 +642,8 @@ class DirNODEC:
         nodes_delta_mov=np.array(nodes_delta_mov)
         best_index=np.argmax(nodes_delta_mov[:,1])
         best_delta=nodes_delta_mov[best_index][1]
-            #
+        
+        
         return best_delta,nodes_delta_mov[best_index]
                 
 

@@ -60,8 +60,7 @@ class ExperimentsDirNODEC:
                     
                     self.performNodeDeletion(best_node_to_delete)
                     print("deleted one node (", best_node_to_delete,")")
-                    self.performNewNodeAddition(inf_i_Cj, inf_i, Cj_index, external_community_idx)
-                    print("added one node")
+                    
                 else:
                     self.performNewNodeAddition(inf_i_Cj, inf_i, Cj_index, external_community_idx)
                     print("added one node")
@@ -226,7 +225,10 @@ class ExperimentsDirNODEC:
         node_out_neighs = [self.nodec.graph.vs[i]["name"] for i in self.nodec.graph.neighbors(node_to_move, mode="out")]
         
         new_neighbors_in_new_com = [i for i in destination_com if i not in node_out_neighs]
-        
+        print("node to move = ",node_to_move)
+        #print(node_out_neighs)
+        #print(destination_com)
+        #print(new_neighbors_in_new_com)
         edge_weight = new_inf_new_com/len(new_neighbors_in_new_com)
         
         ## EDGE ADDITIONS in Cj
@@ -238,7 +240,8 @@ class ExperimentsDirNODEC:
         degree_in_com_copy = self.nodec.degi_Ci
         
         self.nodec.degi_Ci = degree_in_com_copy
-
+        
+        self.nodec.target_community.remove(node_to_move)
 
         return self.nodec.graph
 
@@ -326,7 +329,7 @@ def main():
     dataset_path = "./datasets/"
     datasets = ["freeman"]  # "terrorist2","terrorist1","blogcatalog" #"pubmed","webkb", "cora", "citeseer","facebook","netscience"
     detection_algorithms = ["leiden"]  #louv # "walk" "infomap" "labelp" "greedy" # not in the paper "btw","eig","opt"
-    budget_updates = [2]
+    budget_updates = [10]
     internal_edge_sample_sizes = [0.5]
     external_edge_sample_sizes = [0.5]
     worst_case_scenario=True
