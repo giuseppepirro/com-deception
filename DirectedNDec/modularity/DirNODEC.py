@@ -14,15 +14,9 @@ class DirNODEC:
     def __init__(self, dataset_path):
         self.local_path = dataset_path
         self.graph=None
-        self.induced_subgraph=None
-        self.target_com_node_degrees=None
-        self.node_count=None
-
-        #degree of each community (sum of the degrees of the nodes)
-        self.community_degrees=None
         
-        self.community_out_degrees=None
-        self.community_in_degrees=None
+        self.induced_subgraph=None
+        
         
         #influece of each community (sum of the influences of the nodes)
         self.community_influences=None
@@ -34,21 +28,13 @@ class DirNODEC:
         #Detection time
         self.time_detection=None
 
-        #for each node i in comH, find its degree in its community
-        self.degi_Ci=None
-        
-        self.degi_Ci_out=None
-        self.degi_Ci_in=None
-        
+
         self.degi_Ci_inf=None
         self.degi_Ci_outInf=None
         self.degi_Ci_inInf=None
         
-        #Number of internal edges for each community
-        self.E_Ci=None
-
+        
         self.target_community=None
-        self.initial_community_size=None
         self.communities=None
         self.communities_object = None
         self.community_membership_dict=None
@@ -60,7 +46,6 @@ class DirNODEC:
         
         self.total_network_influence = None #total influence in the network
         self.eta = None #total intra_community influence in the network
-        self.theta = None #total inter_community influence in the network
         self.sigma = None 
         
         
@@ -71,7 +56,20 @@ class DirNODEC:
 
     def getModularity(self,graph, communities):
         return evaluation.newman_girvan_modularity(graph,communities).score
-
+    
+    def getModularityDIN(self, communities):
+        
+        I = self.total_network_influence
+        
+        formula_p1 = self.eta/I
+        
+        coms_out_inf = self.getCommunityOutInfluences(communities)
+        coms_in_inf = self.getCommunityInInfluences(communities)
+        
+        formula_p2 = self.getUpdatedSigma(coms_out_inf, coms_in_inf)/(I**2)
+        
+        return formula_p1 - formula_p2
+    
     def initializeCommunityData(self, detection_algo, recompute_communities,worst_case_scenario):
         self.total_network_influence = self.getTotalNetworkInfluence()
         
@@ -80,60 +78,54 @@ class DirNODEC:
             self.communities,self.time_detection= self.computeCommunitiesCDLIB(detection_algo)
             
             if worst_case_scenario:
-                
                 self.target_community_id = self.getTargetCommunityID()
                 self.target_community = self.communities[self.target_community_id]
-                self.initial_community_size =len(self.target_community)
             else:
                 self.target_community =self.getTargetCommunityNOWorstCase()
-                self.initial_community_size =len(self.target_community)
                 self.target_community_id=-1
 
         self.community_size=len(self.target_community)
         self.induced_subgraph = self.getInducedSubgraph()
         self.community_membership_dict=self.nodeCommunityDict()
-        self.target_com_node_degrees = self.getTargetNodeDegrees()
-        self.degi_Ci = self.getTargetNodeDegreePerCommunity()
-        self.degi_Ci_out = self.getTargetNodeOutDegreePerCommunity()
-        self.degi_Ci_in = self.getTargetNodeInDegreePerCommunity()
-        
         
         
         self.degi_Ci_outInf = self.getTargetNodeOutInfluencePerCommunity()
         self.degi_Ci_inInf = self.getTargetNodeInInfluencePerCommunity()
         self.degi_Ci_inf = self.degi_Ci_outInf+self.degi_Ci_inInf
         
-        """
-        print("################")
-        print(self.communities)
-        print("----------------")
-        print(self.degi_Ci_outInf)
-        print("----------------")
-        print(self.degi_Ci_inInf)
-        print("----------------")
-        print(self.degi_Ci_inf)
-        print("################")
-        
-        exit()
-        """
-        self.E_Ci=self.communities_object.edges_inside(summary=False)
-        
         
         self.eta = self.getEta()
-        self.theta = self.total_network_influence - self.eta 
-        self.sigma = self.getSigma()
+        
+        self.community_influences=self.getCommunityInfluences(self.communities)
+        self.community_out_influences=self.getCommunityOutInfluences(self.communities)
+        self.community_in_influences=self.getCommunityInInfluences(self.communities)
+        
+        self.sigma = self.getUpdatedSigma(self.community_out_influences, self.community_in_influences)
 
-        self.community_degrees = self.getCommunityDegrees()
-        self.community_out_degrees = self.getCommunityOutDegrees()
-        self.community_in_degrees = self.getCommunityInDegrees()
+    
+    def updateStructures(self):
+        """This method updates dynamic structures following
+        each node operation."""
         
-        self.community_influences=self.getCommunityInfluences()
+        self.total_network_influence = self.getTotalNetworkInfluence()
+        self.eta = self.getEta()
         
-        self.community_out_influences=self.getCommunityOutInfluences()
-        self.community_in_influences=self.getCommunityInInfluences()
         
-        self.node_count=self.graph.vcount()
+        self.degi_Ci_outInf = self.getTargetNodeOutInfluencePerCommunity()
+        self.degi_Ci_inInf = self.getTargetNodeInInfluencePerCommunity()
+        self.degi_Ci_inf = self.degi_Ci_outInf+self.degi_Ci_inInf
+        
+        
+        self.community_influences = self.getCommunityInfluences(self.communities) 
+        self.community_out_influences=self.getCommunityOutInfluences(self.communities)
+        self.community_in_influences=self.getCommunityInInfluences(self.communities)
+        
+        self.sigma = self.getUpdatedSigma(self.community_out_influences, self.community_in_influences)
+        
+        self.community_membership_dict = self.nodeCommunityDict()
+        
 
+    
     def computeCommunitiesCDLIB(self,detection_algo):
         g = self.graph
         start = timeit.default_timer()
@@ -214,24 +206,21 @@ class DirNODEC:
             com_in_degs.append(sum(self.graph.indegree(community)))
         return np.array(com_in_degs)
     
-    def getCommunityInfluences(self):
+    def getCommunityInfluences(self, coms):
         com_infs=[]
-        for com_index in range(len(self.communities)):
-            community = self.communities[com_index]
+        for community in coms:
             com_infs.append(sum(self.graph.strength(community, mode='all', weights='weight')))
         return np.array(com_infs)
     
-    def getCommunityOutInfluences(self):
+    def getCommunityOutInfluences(self, coms):
         com_out_infs=[]
-        for com_index in range(len(self.communities)):
-            community = self.communities[com_index]
+        for community in coms:
             com_out_infs.append(sum(self.graph.strength(community, mode='out', weights='weight')))
         return np.array(com_out_infs)
     
-    def getCommunityInInfluences(self):
+    def getCommunityInInfluences(self, coms):
         com_in_infs=[]
-        for com_index in range(len(self.communities)):
-            community = self.communities[com_index]
+        for community in coms:
             com_in_infs.append(sum(self.graph.strength(community, mode='in', weights='weight')))
         return np.array(com_in_infs)
 
@@ -426,33 +415,43 @@ class DirNODEC:
                              self.getOriginalGraphNodeLabel(self.induced_subgraph, e.target), e["weight"]))
         return converted_e
     
-    #ORIGINAL
+    
     def getDeceptionScore(self, after_updates):
-        number_communities = len(self.communities)
+        
         if after_updates==False:
             community=self.target_community
-            
+            communities = self.communities
+            number_communities = len(communities)
         else:
             community=self.target_community
-            community[:] = (value for value in community if value != -1)
-        
+            communities = self.communities_after
+            number_communities = len(communities)
         member_for_community = []
+        
         for member in community:
-            current_community_member = [1 if member in community else 0 for community in self.communities]
+            current_community_member = [1 if member in community else 0 for community in communities]
             member_for_community.append(current_community_member)
         
         
+        
+        
         member_for_community = [sum(x) for x in zip(*member_for_community)]
+        
+        
         ratio_community_members = [members_for_c / len(com) for (members_for_c, com) in
-                                   zip(member_for_community, self.communities)]
+                                   zip(member_for_community, communities)]
+        
+        
+        
         self.ratio_community_members=ratio_community_members
+        
         spread_members = sum([1 if value_per_com > 0 else 0 for value_per_com in ratio_community_members])
         
         second_part = 1 / 2 * ((spread_members - 1) / number_communities) + 1 / 2 * (
                     1 - sum(ratio_community_members) / spread_members)
         
-        print("**************")
-        print(self.target_community)
+        #print("**************")
+        #print(self.target_community)
         num_components = len(self.getInducedSubgraph().decompose())
         first_part = 1 - ((num_components - 1) / (self.community_size - 1))
 
@@ -673,7 +672,7 @@ class DirNODEC:
             sumInCom = np.sum(self.graph.strength(com, mode="in", weights="weight"))
             
             sig = sig + (sumOutCom * sumInCom)
-            
+        
         return sig
     
     def getUpdatedSigma(self, comOutInf, comInInf):
