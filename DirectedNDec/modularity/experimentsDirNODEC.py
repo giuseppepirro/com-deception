@@ -25,38 +25,37 @@ class ExperimentsDirNODEC:
     def com_decept_nodec(self, budget):
         beta = budget
         
-        while (True):
+        while beta>0:
             
             ##this gives the best value the one giving hghest DELTA_del
             delta_del,best_node_to_delete=self.nodec.computeDeltaNodeDeletion()
             
             delta_add,inf_i_Cj,inf_i,Cj_index, external_community_idx=self.nodec.computeDeltaNodeAddition()
             
+            Cj_index = int(Cj_index)
+            external_community_idx = int(external_community_idx)
+            
+            
             delta_move,move_details= self.nodec.computeDeltaNodeMoving()
             
             
-            if float(delta_move)>0:
-                
+            if float(delta_move)>0 and len(self.nodec.target_community) > 1:
                 self.performNodeMove(move_details)
                 print("Moved one node (", move_details[0], ")")
                 
             else:
                 
-                if (delta_del > delta_add) and (len(self.nodec.target_community) > 1):
-                    
+                
+                if delta_add>delta_del:
+                    self.performNewNodeAddition(inf_i_Cj, inf_i, Cj_index, external_community_idx)
+                elif len(self.nodec.target_community) > 1:
                     self.performNodeDeletion(best_node_to_delete)
                     print("Deleted one node (", best_node_to_delete,")")
+                
                     
-                elif delta_add > 0.0:
-                    #Add only when there is a possible increase in modularity loss
-                    self.performNewNodeAddition(inf_i_Cj, inf_i, Cj_index, external_community_idx)
-                else:
-                    break
-            
             beta = beta - 1
             
-            if beta == 0:
-                break
+            
         
         return self.nodec.graph
 
@@ -124,14 +123,22 @@ class ExperimentsDirNODEC:
         #setting up inter-community edges adjacent to new node
         external_community = self.nodec.communities[ext_com_idx]
         external_dest_nodes=random.sample(external_community, len(external_community))
+        
         inter_com_inf_budget = total_inf_i-inf_i_in_dest_com
         
-        for i in external_dest_nodes:
+        edge_weight = inter_com_inf_budget/len(external_community)
+        
+        for i, j in enumerate(external_dest_nodes):
             if inter_com_inf_budget >= edge_weight:
-                self.nodec.graph.add_edges([(new_node_name, i)])
-                self.nodec.graph.es[self.nodec.graph.get_eid(new_node_name, i)]["weight"] = edge_weight
+                if i%2 == 0:#this is to alternate between adding outgoing edges and ingoing
+                    self.nodec.graph.add_edges([(new_node_name, j)])
+                    self.nodec.graph.es[self.nodec.graph.get_eid(new_node_name, j)]["weight"] = edge_weight
+                else:
+                    self.nodec.graph.add_edges([(j, new_node_name)])
+                    self.nodec.graph.es[self.nodec.graph.get_eid(j, new_node_name)]["weight"] = edge_weight
+                
                 inter_com_inf_budget -= edge_weight
-            
+                
             else: 
                 break
             
@@ -254,16 +261,6 @@ class ExperimentsDirNODEC:
         print("Final modularity=", fin_mod)
         print("Final number of nodes and edges=", new_graph.ecount(),new_graph.vcount())
         
-        """
-        if init_mod > fin_mod:
-            print()
-            print("***MODULARITY LOSS***")
-            print()
-        else:
-            print()
-            print("***MODULARITY GAIN***")
-            print()
-        """
         
         
         self.file_experiments.write(
@@ -300,7 +297,7 @@ def main():
     dataset_path = "./datasets/"
     datasets = ["freeman"]  # "terrorist2","terrorist1","blogcatalog" #"pubmed","webkb", "cora", "citeseer","facebook","netscience"
     detection_algorithms = ["leiden"]  #louv # "walk" "infomap" "labelp" "greedy" # not in the paper "btw","eig","opt"
-    budget_updates = [15]
+    budget_updates = [8]
     internal_edge_sample_sizes = [0.5]
     external_edge_sample_sizes = [0.5]
     worst_case_scenario=True

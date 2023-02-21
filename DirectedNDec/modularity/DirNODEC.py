@@ -38,7 +38,9 @@ class DirNODEC:
         self.communities=None
         self.communities_object = None
         self.community_membership_dict=None
-        #
+        
+        self.target_community_sorted_neighbors=None
+        
         self.communities_after = None
         self.communities_after_object = None
         self.ratio_community_members=None
@@ -93,6 +95,11 @@ class DirNODEC:
         self.degi_Ci_inInf = self.getTargetNodeInInfluencePerCommunity()
         self.degi_Ci_inf = self.degi_Ci_outInf+self.degi_Ci_inInf
         
+        inf_matrix = np.asarray(self.degi_Ci_inf)
+        
+        self.target_community_sorted_neighbors = sorted(self.communities, key=lambda x: sum(inf_matrix[:, self.communities.index(x)]), reverse=True)
+        
+        self.target_community_sorted_neighbors.remove(self.target_community)
         
         self.eta = self.getEta()
         
@@ -525,46 +532,59 @@ class DirNODEC:
         mod_before = (self.eta/I)- (self.sigma/(I**2))
         
         
-        ordered_spread=self.ratio_community_members
-        Cj_index= int(ordered_spread.index(ordered_spread[np.argmin(ordered_spread)]))
-        Cj =self.communities[Cj_index]
+        addition_list = list()
         
-        #inf_i_Cj= int(len(Cj)-(math.ceil(len(Cj))*0.1))
-        #inf_i= int(math.ceil(inf_i_Cj*1.2))
+        for Cj in self.target_community_sorted_neighbors:
+            
+            Cj_index= self.communities.index(Cj)
+            
+            #setting internal influence of the new node to be equal to 
+            #the that of the node with minimum intra_influence in destination
+            #community 
+            inf_i_Cj= min(self.graph.induced_subgraph(Cj, implementation='auto').strength(weights='weight'))
+                          
+            inf_i = inf_i_Cj*2
+            
+            #recording the change that affects the in/out influence of community Cj
+            #as a result of adding node i
+            
+            coms_inf_change = np.zeros(len(self.communities))
+           
+            external_destination_community_idx = self.target_community_id
+            
+            coms_inf_change[Cj_index] = 1.5*inf_i_Cj
+            coms_inf_change[external_destination_community_idx] = 0.5*inf_i_Cj
+            
+            #external_source_community_idx = random.choice([i for i in range(len(self.communities)) if i != Cj_index])
+            #community_out_inf_change[Cj_index] = 1.5*inf_i_Cj
+            #community_out_inf_change[external_destination_community_idx] = 0.5*inf_i_Cj
+            
+            #all inter-community edges of the new node should connect with the target
+            #community to cause the maximum disrupt in its modularity
+            
+            #community_in_inf_change[Cj_index] = inf_i_Cj+(inf_i-inf_i_Cj)
+            #community_in_inf_change[external_destination_community_idx] = (inf_i-inf_i_Cj)/2
+            
+            
+            mod_after_p1 = (self.eta+inf_i_Cj)/(I+inf_i)
+            
+            updatedSigma = self.getUpdatedSigma(self.community_out_influences+coms_inf_change, self.community_in_influences+coms_inf_change)
+            
+            mod_after_p2 = updatedSigma/((I+inf_i)**2)
+            
+            mod_after = mod_after_p1 - mod_after_p2
+            
+            deltaAddMod = mod_before - mod_after
+            
+            addition_list.append([deltaAddMod, inf_i_Cj, inf_i, Cj_index, external_destination_community_idx])
+            
         
-        #setting internal influence of the new node to be equal to the average influence 
-        #of the destination community
-        inf_i_Cj= int(self.community_influences[Cj_index]/len(Cj))
-        inf_i= math.ceil(inf_i_Cj*1.2)
         
-        #recording the change that affects the in/out influence of community Cj
-        #as a result of adding node i
+        addition_list = np.array(addition_list)
         
-        community_out_inf_change = np.zeros(len(self.communities))
-        community_in_inf_change = np.zeros(len(self.communities))
-       
+        best_index = np.argmax(addition_list[:, 0])
         
-        #external_source_community_idx = random.choice([i for i in range(len(self.communities)) if i != Cj_index])
-        community_out_inf_change[Cj_index] = inf_i_Cj
-        #community_out_inf_change[external_source_community_idx] = (inf_i-inf_i_Cj)/2
-        
-        #For the moment, the new node can add only outgoing inter-community edges
-        external_destination_community_idx = random.choice([i for i in range(len(self.communities)) if i != Cj_index])
-        community_in_inf_change[Cj_index] = inf_i_Cj+(inf_i-inf_i_Cj)
-        community_in_inf_change[external_destination_community_idx] = (inf_i-inf_i_Cj)/2
-        
-        
-        mod_after_p1 = (self.eta+inf_i_Cj)/(I+inf_i)
-        
-        updatedSigma = self.getUpdatedSigma(self.community_out_influences+community_out_inf_change, self.community_in_influences+community_in_inf_change)
-        
-        mod_after_p2 = updatedSigma/((I+inf_i)**2)
-        
-        mod_after = mod_after_p1 - mod_after_p2
-        
-        deltaAddMod = mod_before - mod_after
-       
-        return deltaAddMod, inf_i_Cj, inf_i, Cj_index, external_destination_community_idx
+        return addition_list[best_index]
     
     
     
