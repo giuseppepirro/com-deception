@@ -1,0 +1,12 @@
+cdlib
+leidenalg
+python-igraph
+networkx
+numpy
+scipy
+pandas
+scikit-learn
+tqdm
+matplotlib
+python-louvain
+karateclub

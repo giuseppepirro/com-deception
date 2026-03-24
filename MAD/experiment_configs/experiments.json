@@ -1,0 +1,14 @@
+{
+  "dataset_root": "datasets/",
+  "runs": [
+    {
+      "method": "mad",
+      "mode": "structure",
+      "dataset": "sample",
+      "detector": "leiden",
+      "budget": 5,
+      "budget_percentage": false,
+      "target_criterion": "degree"
+    }
+  ]
+}
